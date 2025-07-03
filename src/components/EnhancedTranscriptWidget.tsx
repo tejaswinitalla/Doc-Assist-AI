@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -46,6 +45,7 @@ const EnhancedTranscriptWidget: React.FC = () => {
   const wsRef = useRef<WebSocket | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     return () => {
@@ -54,6 +54,9 @@ const EnhancedTranscriptWidget: React.FC = () => {
       }
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
       }
     };
   }, []);
@@ -66,28 +69,52 @@ const EnhancedTranscriptWidget: React.FC = () => {
     }
   }, [transcripts]);
 
-  const connectWebSocket = () => {
-    wsRef.current = new WebSocket('ws://localhost:8080');
-    
-    wsRef.current.onopen = () => {
-      setConnectionStatus('connected');
-      console.log('Connected to ASR server');
-    };
-    
-    wsRef.current.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      handleTranscript(message);
-    };
-    
-    wsRef.current.onclose = () => {
-      setConnectionStatus('disconnected');
-      console.log('Disconnected from ASR server');
-    };
-    
-    wsRef.current.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      setConnectionStatus('error');
-    };
+  const connectWebSocket = (): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        resolve();
+        return;
+      }
+
+      wsRef.current = new WebSocket('ws://localhost:8080');
+      
+      wsRef.current.onopen = () => {
+        setConnectionStatus('connected');
+        console.log('Connected to ASR server');
+        resolve();
+      };
+      
+      wsRef.current.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        handleTranscript(message);
+      };
+      
+      wsRef.current.onclose = () => {
+        setConnectionStatus('disconnected');
+        console.log('Disconnected from ASR server');
+        
+        // Auto-reconnect after 3 seconds if we were recording
+        if (isRecording) {
+          reconnectTimeoutRef.current = setTimeout(() => {
+            console.log('Attempting to reconnect...');
+            connectWebSocket().catch(console.error);
+          }, 3000);
+        }
+      };
+      
+      wsRef.current.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        setConnectionStatus('error');
+        reject(error);
+      };
+
+      // Timeout after 5 seconds
+      setTimeout(() => {
+        if (wsRef.current?.readyState !== WebSocket.OPEN) {
+          reject(new Error('WebSocket connection timeout'));
+        }
+      }, 5000);
+    });
   };
 
   const handleTranscript = (message: any) => {
@@ -158,11 +185,7 @@ const EnhancedTranscriptWidget: React.FC = () => {
 
   const startRecording = async () => {
     try {
-      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-        connectWebSocket();
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-
+      // First, get microphone access
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           sampleRate: 16000,
@@ -173,6 +196,11 @@ const EnhancedTranscriptWidget: React.FC = () => {
       });
 
       streamRef.current = stream;
+
+      // Then connect to WebSocket
+      await connectWebSocket();
+
+      // Set up MediaRecorder
       mediaRecorderRef.current = new MediaRecorder(stream, {
         mimeType: 'audio/webm;codecs=opus'
       });
@@ -191,15 +219,21 @@ const EnhancedTranscriptWidget: React.FC = () => {
         }
       };
 
+      // Start recording
       wsRef.current?.send(JSON.stringify({ type: 'start' }));
       mediaRecorderRef.current.start(100);
       setIsRecording(true);
+
+      toast({
+        title: "Recording Started",
+        description: "Microphone is now active and transcribing speech.",
+      });
       
     } catch (error) {
       console.error('Failed to start recording:', error);
       toast({
         title: "Recording Error",
-        description: "Failed to start audio recording. Please check microphone permissions.",
+        description: "Failed to start audio recording. Please check microphone permissions and WebSocket server.",
         variant: "destructive",
       });
     }
@@ -214,6 +248,11 @@ const EnhancedTranscriptWidget: React.FC = () => {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
+
+      toast({
+        title: "Recording Stopped",
+        description: "Audio recording has been stopped.",
+      });
     }
   };
 
@@ -296,7 +335,7 @@ const EnhancedTranscriptWidget: React.FC = () => {
                   <span>Live Medical Transcription</span>
                 </span>
                 <div className="flex items-center space-x-2">
-                  <Badge variant={connectionStatus === 'connected' ? 'default' : 'secondary'}>
+                  <Badge variant={connectionStatus === 'connected' ? 'default' : connectionStatus === 'error' ? 'destructive' : 'secondary'}>
                     {connectionStatus}
                   </Badge>
                   {isProcessingNLP && (
