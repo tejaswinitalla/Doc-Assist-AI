@@ -5,10 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Stethoscope, CloudIcon, TestTube, BarChart3, Upload, Play, Pause, Activity } from 'lucide-react';
+import { Stethoscope, CloudIcon, TestTube, BarChart3, Upload, Play, Pause, Activity, Code } from 'lucide-react';
 import ServiceComparison from '../components/ServiceComparison';
 import AudioTesting from '../components/AudioTesting';
 import BenchmarkResults from '../components/BenchmarkResults';
+import ImplementationGuide from '../components/ImplementationGuide';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('comparison');
@@ -41,7 +42,7 @@ const Index = () => {
       {/* Main Content */}
       <main className="container mx-auto px-6 py-8">
         {/* Overview Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <Card className="medical-card hover:shadow-lg transition-all duration-300 animate-slide-up">
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center text-lg">
@@ -89,13 +90,32 @@ const Index = () => {
               </div>
             </CardContent>
           </Card>
+
+          <Card className="medical-card hover:shadow-lg transition-all duration-300 animate-slide-up" style={{ animationDelay: '0.3s' }}>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center text-lg">
+                <Code className="w-5 h-5 mr-2 text-medical-warning" />
+                Implementation
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-slate-600 mb-3">Sprint progress and code examples</p>
+              <div className="flex items-center justify-between">
+                <span className="text-2xl font-bold text-medical-warning">5</span>
+                <span className="text-sm text-slate-500">Days Sprint</span>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 bg-white/80 backdrop-blur-sm">
+          <TabsList className="grid w-full grid-cols-4 bg-white/80 backdrop-blur-sm">
             <TabsTrigger value="comparison" className="data-[state=active]:bg-medical-blue data-[state=active]:text-white">
               Service Comparison
+            </TabsTrigger>
+            <TabsTrigger value="implementation" className="data-[state=active]:bg-medical-warning data-[state=active]:text-white">
+              Implementation Guide
             </TabsTrigger>
             <TabsTrigger value="testing" className="data-[state=active]:bg-medical-teal data-[state=active]:text-white">
               Audio Testing
@@ -107,6 +127,10 @@ const Index = () => {
 
           <TabsContent value="comparison" className="space-y-6">
             <ServiceComparison />
+          </TabsContent>
+
+          <TabsContent value="implementation" className="space-y-6">
+            <ImplementationGuide />
           </TabsContent>
 
           <TabsContent value="testing" className="space-y-6">

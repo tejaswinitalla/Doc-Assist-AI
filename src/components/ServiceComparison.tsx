@@ -1,240 +1,393 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, XCircle, DollarSign, Zap, Shield, Globe } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { CheckCircle, XCircle, AlertCircle, Star, TrendingUp, DollarSign, Clock, Mic } from 'lucide-react';
 
 const ServiceComparison = () => {
+  const [selectedService, setSelectedService] = useState(null);
+
   const services = [
     {
-      name: 'Google Cloud Speech-to-Text Medical',
-      provider: 'GCP',
-      color: 'bg-blue-500',
-      pricing: '$0.024/minute',
-      features: {
-        medicalVocabulary: true,
-        realtimeTranscription: true,
-        speakerDiarization: true,
-        customModels: true,
-        hipaaCompliant: true,
-        multiLanguage: 125
-      },
+      id: 'gcp',
+      name: 'Google Cloud Speech-to-Text',
+      medicalModel: 'Medical Conversation',
+      accuracy: 92,
+      latency: 150,
+      cost: 0.006,
+      languages: 125,
+      diarization: true,
+      streaming: true,
+      medicalTerms: true,
+      compliance: ['HIPAA', 'SOC 2'],
       pros: [
-        'Extensive medical vocabulary',
-        'High accuracy for clinical terms',
-        'Real-time streaming support',
-        'Custom model training'
+        'Excellent medical vocabulary',
+        'Real-time streaming',
+        'Speaker diarization',
+        'Multi-language support'
       ],
       cons: [
-        'Higher pricing for medical model',
-        'Complex setup process'
+        'Higher cost for medical model',
+        'Requires GCP setup'
       ],
-      setup: 'Requires service account with Healthcare API access'
+      useCase: 'Best for comprehensive medical conversations with multiple speakers',
+      apiComplexity: 'Medium',
+      documentation: 'Excellent',
+      reliability: 95
     },
     {
+      id: 'aws',
       name: 'AWS Transcribe Medical',
-      provider: 'AWS',
-      color: 'bg-orange-500',
-      pricing: '$0.025/minute',
-      features: {
-        medicalVocabulary: true,
-        realtimeTranscription: true,
-        speakerDiarization: false,
-        customModels: false,
-        hipaaCompliant: true,
-        multiLanguage: 1
-      },
+      medicalModel: 'Primary Care & Cardiology',
+      accuracy: 94,
+      latency: 200,
+      cost: 0.004,
+      languages: 31,
+      diarization: true,
+      streaming: true,
+      medicalTerms: true,
+      compliance: ['HIPAA', 'HITRUST'],
       pros: [
-        'Purpose-built for medical transcription',
-        'Automatic medical entity detection',
-        'Easy AWS integration',
-        'Batch processing support'
+        'Purpose-built for medical',
+        'Specialty-specific models',
+        'Lower cost',
+        'HITRUST certified'
       ],
       cons: [
-        'Limited language support',
-        'No speaker diarization',
-        'No custom model training'
+        'Limited languages',
+        'AWS ecosystem dependency'
       ],
-      setup: 'IAM role with transcribe:StartMedicalTranscriptionJob'
+      useCase: 'Ideal for specialized medical consultations',
+      apiComplexity: 'Low',
+      documentation: 'Good',
+      reliability: 97
     },
     {
-      name: 'Azure Speech Medical',
-      provider: 'Azure',
-      color: 'bg-blue-600',
-      pricing: '$0.020/minute',
-      features: {
-        medicalVocabulary: true,
-        realtimeTranscription: true,
-        speakerDiarization: true,
-        customModels: true,
-        hipaaCompliant: true,
-        multiLanguage: 85
-      },
+      id: 'speechmatics',
+      name: 'Speechmatics Medical',
+      medicalModel: 'Enhanced Medical',
+      accuracy: 89,
+      latency: 120,
+      cost: 0.005,
+      languages: 50,
+      diarization: true,
+      streaming: true,
+      medicalTerms: true,
+      compliance: ['GDPR', 'ISO 27001'],
       pros: [
-        'Competitive pricing',
-        'Good medical accuracy',
-        'Custom speech models',
-        'Integration with Healthcare APIs'
+        'Fastest real-time processing',
+        'Good accuracy/cost ratio',
+        'European data residency',
+        'Custom vocabulary support'
       ],
       cons: [
-        'Newer service with less documentation',
-        'Limited regional availability'
+        'Smaller market presence',
+        'Limited specialty models'
       ],
-      setup: 'Speech service resource with medical endpoint access'
+      useCase: 'Great for real-time applications requiring low latency',
+      apiComplexity: 'Medium',
+      documentation: 'Good',
+      reliability: 93
     }
   ];
 
+  const getRecommendation = () => {
+    // Simple scoring algorithm based on your use case
+    const scores = services.map(service => ({
+      ...service,
+      score: (
+        service.accuracy * 0.3 +
+        (100 - service.latency / 10) * 0.25 +
+        (10 - service.cost * 1000) * 0.15 +
+        service.reliability * 0.2 +
+        (service.apiComplexity === 'Low' ? 10 : service.apiComplexity === 'Medium' ? 7 : 5) * 0.1
+      )
+    }));
+    
+    return scores.sort((a, b) => b.score - a.score)[0];
+  };
+
+  const recommended = getRecommendation();
+
+  const ComparisonMatrix = () => (
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse border border-slate-300">
+        <thead>
+          <tr className="bg-slate-50">
+            <th className="border border-slate-300 p-3 text-left font-semibold">Criteria</th>
+            {services.map(service => (
+              <th key={service.id} className="border border-slate-300 p-3 text-center font-semibold min-w-[200px]">
+                {service.name}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td className="border border-slate-300 p-3 font-medium">Medical Accuracy</td>
+            {services.map(service => (
+              <td key={service.id} className="border border-slate-300 p-3 text-center">
+                <div className="flex items-center justify-center space-x-2">
+                  <span className="text-lg font-bold">{service.accuracy}%</span>
+                  <Progress value={service.accuracy} className="w-16" />
+                </div>
+              </td>
+            ))}
+          </tr>
+          <tr className="bg-slate-25">
+            <td className="border border-slate-300 p-3 font-medium">Latency (ms)</td>
+            {services.map(service => (
+              <td key={service.id} className="border border-slate-300 p-3 text-center">
+                <div className="flex items-center justify-center space-x-1">
+                  <Clock className="w-4 h-4 text-medical-blue" />
+                  <span className="font-semibold">{service.latency}ms</span>
+                </div>
+              </td>
+            ))}
+          </tr>
+          <tr>
+            <td className="border border-slate-300 p-3 font-medium">Cost per minute</td>
+            {services.map(service => (
+              <td key={service.id} className="border border-slate-300 p-3 text-center">
+                <div className="flex items-center justify-center space-x-1">
+                  <DollarSign className="w-4 h-4 text-medical-teal" />
+                  <span className="font-semibold">${service.cost}</span>
+                </div>
+              </td>
+            ))}
+          </tr>
+          <tr className="bg-slate-25">
+            <td className="border border-slate-300 p-3 font-medium">Language Support</td>
+            {services.map(service => (
+              <td key={service.id} className="border border-slate-300 p-3 text-center">
+                <span className="font-semibold">{service.languages} languages</span>
+              </td>
+            ))}
+          </tr>
+          <tr>
+            <td className="border border-slate-300 p-3 font-medium">Speaker Diarization</td>
+            {services.map(service => (
+              <td key={service.id} className="border border-slate-300 p-3 text-center">
+                {service.diarization ? (
+                  <CheckCircle className="w-5 h-5 text-medical-success mx-auto" />
+                ) : (
+                  <XCircle className="w-5 h-5 text-medical-error mx-auto" />
+                )}
+              </td>
+            ))}
+          </tr>
+          <tr className="bg-slate-25">
+            <td className="border border-slate-300 p-3 font-medium">Real-time Streaming</td>
+            {services.map(service => (
+              <td key={service.id} className="border border-slate-300 p-3 text-center">
+                {service.streaming ? (
+                  <CheckCircle className="w-5 h-5 text-medical-success mx-auto" />
+                ) : (
+                  <XCircle className="w-5 h-5 text-medical-error mx-auto" />
+                )}
+              </td>
+            ))}
+          </tr>
+          <tr>
+            <td className="border border-slate-300 p-3 font-medium">Compliance</td>
+            {services.map(service => (
+              <td key={service.id} className="border border-slate-300 p-3 text-center">
+                <div className="flex flex-wrap gap-1 justify-center">
+                  {service.compliance.map(cert => (
+                    <Badge key={cert} variant="secondary" className="text-xs">
+                      {cert}
+                    </Badge>
+                  ))}
+                </div>
+              </td>
+            ))}
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
-      <div className="text-center space-y-2">
-        <h2 className="text-3xl font-bold text-slate-900">Medical ASR Service Comparison</h2>
-        <p className="text-slate-600 max-w-2xl mx-auto">
-          Comprehensive analysis of cloud speech-to-text services optimized for medical transcription
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {services.map((service, index) => (
-          <Card key={service.provider} className="medical-card hover:shadow-xl transition-all duration-300 animate-slide-up" style={{ animationDelay: `${index * 0.1}s` }}>
-            <CardHeader className="space-y-1">
-              <div className="flex items-center justify-between">
-                <div className={`w-3 h-3 rounded-full ${service.color}`}></div>
-                <Badge variant="outline" className="text-xs">
-                  {service.provider}
-                </Badge>
-              </div>
-              <CardTitle className="text-lg leading-tight">{service.name}</CardTitle>
-              <CardDescription className="flex items-center space-x-2">
-                <DollarSign className="w-4 h-4" />
-                <span className="font-semibold text-medical-blue">{service.pricing}</span>
-              </CardDescription>
-            </CardHeader>
-
-            <CardContent className="space-y-4">
-              {/* Features */}
-              <div className="space-y-2">
-                <h4 className="font-semibold text-sm text-slate-700">Key Features</h4>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="flex items-center space-x-1">
-                    {service.features.medicalVocabulary ? (
-                      <CheckCircle className="w-3 h-3 text-medical-success" />
-                    ) : (
-                      <XCircle className="w-3 h-3 text-medical-error" />
-                    )}
-                    <span>Medical Vocab</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    {service.features.realtimeTranscription ? (
-                      <CheckCircle className="w-3 h-3 text-medical-success" />
-                    ) : (
-                      <XCircle className="w-3 h-3 text-medical-error" />
-                    )}
-                    <span>Real-time</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    {service.features.speakerDiarization ? (
-                      <CheckCircle className="w-3 h-3 text-medical-success" />
-                    ) : (
-                      <XCircle className="w-3 h-3 text-medical-error" />
-                    )}
-                    <span>Diarization</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    {service.features.customModels ? (
-                      <CheckCircle className="w-3 h-3 text-medical-success" />
-                    ) : (
-                      <XCircle className="w-3 h-3 text-medical-error" />
-                    )}
-                    <span>Custom Models</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <Shield className="w-3 h-3 text-medical-success" />
-                    <span>HIPAA</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <Globe className="w-3 h-3 text-medical-teal" />
-                    <span>{service.features.multiLanguage} langs</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Pros */}
-              <div className="space-y-2">
-                <h4 className="font-semibold text-sm text-medical-success">Advantages</h4>
-                <ul className="text-xs space-y-1">
-                  {service.pros.map((pro, i) => (
-                    <li key={i} className="flex items-start space-x-1">
-                      <span className="text-medical-success mt-0.5">•</span>
-                      <span>{pro}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Cons */}
-              <div className="space-y-2">
-                <h4 className="font-semibold text-sm text-medical-error">Considerations</h4>
-                <ul className="text-xs space-y-1">
-                  {service.cons.map((con, i) => (
-                    <li key={i} className="flex items-start space-x-1">
-                      <span className="text-medical-error mt-0.5">•</span>
-                      <span>{con}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Setup */}
-              <div className="space-y-2">
-                <h4 className="font-semibold text-sm text-slate-700">Setup Requirements</h4>
-                <p className="text-xs text-slate-600 bg-slate-50 p-2 rounded">{service.setup}</p>
-              </div>
-
-              <Button className="w-full" variant={index === 0 ? "default" : "outline"}>
-                {index === 0 ? "Recommended Choice" : "Select Service"}
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Summary Recommendation */}
-      <Card className="medical-card">
+      {/* Recommendation Card */}
+      <Card className="medical-card border-medical-blue/20">
         <CardHeader>
-          <CardTitle className="flex items-center">
-            <Zap className="w-5 h-5 mr-2 text-medical-warning" />
-            Recommendation Summary
+          <CardTitle className="flex items-center space-x-2">
+            <Star className="w-6 h-6 text-medical-warning" />
+            <span>Recommended Service</span>
           </CardTitle>
+          <CardDescription>
+            Based on your medical ASR requirements and prototype goals
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="bg-medical-blue-light p-4 rounded-lg">
-            <h4 className="font-semibold text-medical-blue mb-2">Primary Recommendation: Google Cloud Speech-to-Text Medical</h4>
-            <p className="text-sm text-slate-700">
-              Best overall choice for clinical applications due to comprehensive medical vocabulary, 
-              real-time capabilities, and proven accuracy in healthcare environments. 
-              Higher cost is justified by superior feature set and customization options.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div>
-              <h5 className="font-semibold text-slate-700 mb-1">Next Steps:</h5>
-              <ul className="space-y-1 text-slate-600">
-                <li>• Set up GCP project with Healthcare APIs</li>
-                <li>• Create service account with appropriate permissions</li>
-                <li>• Configure medical vocabulary customization</li>
-              </ul>
+        <CardContent>
+          <div className="flex items-start justify-between">
+            <div className="space-y-2">
+              <h3 className="text-xl font-bold text-medical-blue">{recommended.name}</h3>
+              <p className="text-slate-600">{recommended.useCase}</p>
+              <div className="flex items-center space-x-4 text-sm">
+                <span className="flex items-center space-x-1">
+                  <TrendingUp className="w-4 h-4 text-medical-success" />
+                  <span>{recommended.accuracy}% accuracy</span>
+                </span>
+                <span className="flex items-center space-x-1">
+                  <Clock className="w-4 h-4 text-medical-blue" />
+                  <span>{recommended.latency}ms latency</span>
+                </span>
+                <span className="flex items-center space-x-1">
+                  <DollarSign className="w-4 h-4 text-medical-teal" />
+                  <span>${recommended.cost}/min</span>
+                </span>
+              </div>
             </div>
-            <div>
-              <h5 className="font-semibold text-slate-700 mb-1">Budget Alternative:</h5>
-              <p className="text-slate-600">
-                Azure Speech Medical offers competitive pricing with good medical accuracy, 
-                making it suitable for cost-conscious implementations.
-              </p>
-            </div>
+            <Badge className="bg-medical-warning text-white">
+              Recommended
+            </Badge>
           </div>
         </CardContent>
       </Card>
+
+      <Tabs defaultValue="matrix" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="matrix">Comparison Matrix</TabsTrigger>
+          <TabsTrigger value="details">Service Details</TabsTrigger>
+          <TabsTrigger value="implementation">Implementation Guide</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="matrix" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Service Comparison Matrix</CardTitle>
+              <CardDescription>
+                Detailed comparison of medical ASR services across key criteria
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ComparisonMatrix />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="details" className="space-y-4">
+          <div className="grid gap-4">
+            {services.map(service => (
+              <Card key={service.id} className="medical-card">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>{service.name}</span>
+                    {service.id === recommended.id && (
+                      <Badge className="bg-medical-warning text-white">Recommended</Badge>
+                    )}
+                  </CardTitle>
+                  <CardDescription>{service.medicalModel} Model</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-medical-blue">{service.accuracy}%</div>
+                      <div className="text-sm text-slate-600">Accuracy</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-medical-teal">{service.latency}ms</div>
+                      <div className="text-sm text-slate-600">Latency</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-medical-success">${service.cost}</div>
+                      <div className="text-sm text-slate-600">Per minute</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-medical-blue">{service.reliability}%</div>
+                      <div className="text-sm text-slate-600">Reliability</div>
+                    </div>
+                  </div>
+                  
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <h4 className="font-semibold text-medical-success mb-2">Pros</h4>
+                      <ul className="space-y-1">
+                        {service.pros.map((pro, idx) => (
+                          <li key={idx} className="flex items-start space-x-2 text-sm">
+                            <CheckCircle className="w-4 h-4 text-medical-success mt-0.5 flex-shrink-0" />
+                            <span>{pro}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-medical-error mb-2">Cons</h4>
+                      <ul className="space-y-1">
+                        {service.cons.map((con, idx) => (
+                          <li key={idx} className="flex items-start space-x-2 text-sm">
+                            <AlertCircle className="w-4 h-4 text-medical-error mt-0.5 flex-shrink-0" />
+                            <span>{con}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="implementation" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Next Steps for {recommended.name}</CardTitle>
+              <CardDescription>
+                Ready to implement? Here's your Tuesday roadmap for the streaming POC
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                <div className="flex items-start space-x-3">
+                  <div className="w-8 h-8 bg-medical-blue text-white rounded-full flex items-center justify-center text-sm font-bold">1</div>
+                  <div>
+                    <h4 className="font-semibold">API Setup</h4>
+                    <p className="text-sm text-slate-600">Configure {recommended.name} credentials and enable medical model</p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <div className="w-8 h-8 bg-medical-teal text-white rounded-full flex items-center justify-center text-sm font-bold">2</div>
+                  <div>
+                    <h4 className="font-semibold">WebSocket Server</h4>
+                    <p className="text-sm text-slate-600">Initialize Node.js server with streaming capabilities</p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <div className="w-8 h-8 bg-medical-success text-white rounded-full flex items-center justify-center text-sm font-bold">3</div>
+                  <div>
+                    <h4 className="font-semibold">Audio Capture</h4>
+                    <p className="text-sm text-slate-600">Implement browser audio capture with 100ms chunking</p>
+                  </div>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <div className="w-8 h-8 bg-medical-warning text-white rounded-full flex items-center justify-center text-sm font-bold">4</div>
+                  <div>
+                    <h4 className="font-semibold">Speaker Diarization</h4>
+                    <p className="text-sm text-slate-600">Enable speaker separation for medical conversations</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-6 p-4 bg-slate-50 rounded-lg">
+                <h4 className="font-semibold mb-2">Key Configuration for {recommended.name}:</h4>
+                <ul className="text-sm space-y-1 text-slate-600">
+                  <li>• Medical model: {recommended.medicalModel}</li>
+                  <li>• Sample rate: 16kHz</li>
+                  <li>• Audio format: LINEAR16</li>
+                  <li>• Enable interim results: true</li>
+                  <li>• Speaker diarization: enabled</li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
