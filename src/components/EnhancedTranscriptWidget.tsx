@@ -40,12 +40,19 @@ const EnhancedTranscriptWidget: React.FC = () => {
   const [nlpError, setNlpError] = useState<string | null>(null);
   const [showMedicationAlert, setShowMedicationAlert] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [debugInfo, setDebugInfo] = useState<string[]>([]);
   
   const { toast } = useToast();
   const wsRef = useRef<WebSocket | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Debug logging function
+  const addDebugLog = (message: string) => {
+    console.log(`[ASR Debug] ${message}`);
+    setDebugInfo(prev => [...prev.slice(-4), `${new Date().toLocaleTimeString()}: ${message}`]);
+  };
 
   useEffect(() => {
     return () => {
@@ -65,38 +72,50 @@ const EnhancedTranscriptWidget: React.FC = () => {
     // Auto-process NLP when we have enough transcript content
     const fullTranscript = transcripts.map(t => t.text).join(' ');
     if (fullTranscript.length > 50 && !isProcessingNLP) {
+      addDebugLog(`Auto-processing NLP with ${fullTranscript.length} characters`);
       processWithNLP(fullTranscript);
     }
   }, [transcripts]);
 
   const connectWebSocket = (): Promise<void> => {
     return new Promise((resolve, reject) => {
+      addDebugLog('Attempting WebSocket connection...');
+      
       if (wsRef.current?.readyState === WebSocket.OPEN) {
+        addDebugLog('WebSocket already connected');
         resolve();
         return;
       }
 
+      // Try to connect to WebSocket server
       wsRef.current = new WebSocket('ws://localhost:8080');
       
       wsRef.current.onopen = () => {
         setConnectionStatus('connected');
-        console.log('Connected to ASR server');
+        addDebugLog('WebSocket connected successfully');
         resolve();
       };
       
       wsRef.current.onmessage = (event) => {
-        const message = JSON.parse(event.data);
-        handleTranscript(message);
+        addDebugLog('Received WebSocket message');
+        try {
+          const message = JSON.parse(event.data);
+          console.log('WebSocket message:', message);
+          handleTranscript(message);
+        } catch (error) {
+          addDebugLog(`Error parsing WebSocket message: ${error}`);
+        }
       };
       
-      wsRef.current.onclose = () => {
+      wsRef.current.onclose = (event) => {
         setConnectionStatus('disconnected');
-        console.log('Disconnected from ASR server');
+        addDebugLog(`WebSocket disconnected: ${event.code} - ${event.reason}`);
         
         // Auto-reconnect after 3 seconds if we were recording
         if (isRecording) {
+          addDebugLog('Scheduling reconnection...');
           reconnectTimeoutRef.current = setTimeout(() => {
-            console.log('Attempting to reconnect...');
+            addDebugLog('Attempting to reconnect...');
             connectWebSocket().catch(console.error);
           }, 3000);
         }
@@ -105,36 +124,50 @@ const EnhancedTranscriptWidget: React.FC = () => {
       wsRef.current.onerror = (error) => {
         console.error('WebSocket error:', error);
         setConnectionStatus('error');
+        addDebugLog(`WebSocket error occurred`);
         reject(error);
       };
 
-      // Timeout after 5 seconds
+      // Increased timeout to 10 seconds
       setTimeout(() => {
         if (wsRef.current?.readyState !== WebSocket.OPEN) {
-          reject(new Error('WebSocket connection timeout'));
+          addDebugLog('WebSocket connection timeout');
+          reject(new Error('WebSocket connection timeout after 10 seconds'));
         }
-      }, 5000);
+      }, 10000);
     });
   };
 
   const handleTranscript = (message: any) => {
+    addDebugLog(`Processing transcript message: ${message.type}`);
+    
     if (message.type === 'transcript') {
       const { text, isFinal, confidence, speakers: speakerData } = message.data;
+      
+      addDebugLog(`Transcript: ${text} (Final: ${isFinal}, Confidence: ${confidence})`);
       
       if (isFinal) {
         const newTranscript: TranscriptEntry = {
           text,
           isFinal: true,
-          confidence,
+          confidence: confidence || 0.9, // Default confidence if not provided
           timestamp: new Date().toLocaleTimeString(),
           speakers: speakerData
         };
         
         setTranscripts(prev => [...prev, newTranscript]);
         setCurrentTranscript('');
+        addDebugLog(`Added final transcript entry: "${text}"`);
       } else {
         setCurrentTranscript(text);
       }
+    } else if (message.type === 'error') {
+      addDebugLog(`Received error: ${message.message}`);
+      toast({
+        title: "ASR Error",
+        description: message.message,
+        variant: "destructive",
+      });
     }
   };
 
@@ -145,12 +178,13 @@ const EnhancedTranscriptWidget: React.FC = () => {
     setNlpError(null);
     
     try {
-      console.log('Processing transcript with NLP:', transcript.substring(0, 100) + '...');
+      addDebugLog('Processing transcript with NLP...');
       
       // Use mock service for demo (switch to real service when Docker is available)
       const response = await nlpService.mockComposeDraftNote(transcript);
       
       setNlpResponse(response);
+      addDebugLog('NLP processing completed successfully');
       
       // Check for medication alerts
       if (response.medicationRequests && response.medicationRequests.length > 0) {
@@ -166,6 +200,7 @@ const EnhancedTranscriptWidget: React.FC = () => {
     } catch (error) {
       console.error('NLP processing error:', error);
       setNlpError(error instanceof Error ? error.message : 'NLP processing failed');
+      addDebugLog(`NLP processing failed: ${error}`);
       
       toast({
         title: "NLP Processing Error",
@@ -180,48 +215,76 @@ const EnhancedTranscriptWidget: React.FC = () => {
   const retryNLPProcessing = () => {
     const fullTranscript = transcripts.map(t => t.text).join(' ');
     setRetryCount(prev => prev + 1);
+    addDebugLog(`Retrying NLP processing (attempt ${retryCount + 1})`);
     processWithNLP(fullTranscript);
   };
 
   const startRecording = async () => {
     try {
+      addDebugLog('Starting recording process...');
+      
       // First, get microphone access
+      addDebugLog('Requesting microphone access...');
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           sampleRate: 16000,
           channelCount: 1,
           echoCancellation: true,
           noiseSuppression: true,
+          autoGainControl: true,
         }
       });
 
       streamRef.current = stream;
+      addDebugLog('Microphone access granted');
 
       // Then connect to WebSocket
+      addDebugLog('Connecting to WebSocket...');
       await connectWebSocket();
 
-      // Set up MediaRecorder
-      mediaRecorderRef.current = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
+      // Set up MediaRecorder with better error handling
+      try {
+        mediaRecorderRef.current = new MediaRecorder(stream, {
+          mimeType: 'audio/webm;codecs=opus'
+        });
+      } catch (error) {
+        // Fallback to default format if opus not supported
+        addDebugLog('Opus codec not supported, using default');
+        mediaRecorderRef.current = new MediaRecorder(stream);
+      }
 
       mediaRecorderRef.current.ondataavailable = (event) => {
         if (event.data.size > 0 && wsRef.current?.readyState === WebSocket.OPEN) {
+          addDebugLog(`Sending audio chunk: ${event.data.size} bytes`);
+          
           const reader = new FileReader();
           reader.onloadend = () => {
-            const base64Audio = (reader.result as string).split(',')[1];
-            wsRef.current?.send(JSON.stringify({
-              type: 'audio',
-              audio: base64Audio
-            }));
+            try {
+              const arrayBuffer = reader.result as ArrayBuffer;
+              const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+              
+              wsRef.current?.send(JSON.stringify({
+                type: 'audio',
+                audio: base64Audio
+              }));
+            } catch (error) {
+              addDebugLog(`Error encoding audio: ${error}`);
+            }
           };
-          reader.readAsDataURL(event.data);
+          reader.readAsArrayBuffer(event.data);
         }
       };
 
+      mediaRecorderRef.current.onerror = (event) => {
+        addDebugLog(`MediaRecorder error: ${event}`);
+      };
+
       // Start recording
+      addDebugLog('Sending start command to WebSocket...');
       wsRef.current?.send(JSON.stringify({ type: 'start' }));
-      mediaRecorderRef.current.start(100);
+      
+      addDebugLog('Starting MediaRecorder...');
+      mediaRecorderRef.current.start(250); // Increased chunk size to 250ms
       setIsRecording(true);
 
       toast({
@@ -229,8 +292,12 @@ const EnhancedTranscriptWidget: React.FC = () => {
         description: "Microphone is now active and transcribing speech.",
       });
       
+      addDebugLog('Recording started successfully');
+      
     } catch (error) {
       console.error('Failed to start recording:', error);
+      addDebugLog(`Recording failed: ${error}`);
+      
       toast({
         title: "Recording Error",
         description: "Failed to start audio recording. Please check microphone permissions and WebSocket server.",
@@ -240,6 +307,8 @@ const EnhancedTranscriptWidget: React.FC = () => {
   };
 
   const stopRecording = () => {
+    addDebugLog('Stopping recording...');
+    
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       wsRef.current?.send(JSON.stringify({ type: 'stop' }));
@@ -253,6 +322,8 @@ const EnhancedTranscriptWidget: React.FC = () => {
         title: "Recording Stopped",
         description: "Audio recording has been stopped.",
       });
+      
+      addDebugLog('Recording stopped successfully');
     }
   };
 
@@ -265,8 +336,47 @@ const EnhancedTranscriptWidget: React.FC = () => {
     return colors[speakerTag % colors.length];
   };
 
+  // Test transcript functionality with sample data
+  const addTestTranscript = () => {
+    const testTranscript: TranscriptEntry = {
+      text: "Patient reports chest pain for the past two hours. Prescribed aspirin 81mg daily.",
+      isFinal: true,
+      confidence: 0.95,
+      timestamp: new Date().toLocaleTimeString(),
+    };
+    
+    setTranscripts(prev => [...prev, testTranscript]);
+    addDebugLog('Added test transcript');
+    
+    toast({
+      title: "Test Transcript Added",
+      description: "Sample medical transcript added for testing NLP processing.",
+    });
+  };
+
   return (
     <div className="space-y-6">
+      {/* Debug Info Panel */}
+      {debugInfo.length > 0 && (
+        <Card className="border-gray-200">
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center justify-between">
+              <span>Debug Information</span>
+              <Button variant="ghost" size="sm" onClick={() => setDebugInfo([])}>
+                Clear
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xs font-mono space-y-1 max-h-32 overflow-y-auto">
+              {debugInfo.map((info, idx) => (
+                <div key={idx} className="text-gray-600">{info}</div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Medication Alert Banner */}
       {showMedicationAlert && (
         <Alert className="border-red-200 bg-red-50">
@@ -345,6 +455,14 @@ const EnhancedTranscriptWidget: React.FC = () => {
                     </Badge>
                   )}
                   <Button
+                    onClick={addTestTranscript}
+                    variant="outline"
+                    size="sm"
+                    className="text-xs"
+                  >
+                    Add Test Data
+                  </Button>
+                  <Button
                     onClick={isRecording ? stopRecording : startRecording}
                     variant={isRecording ? 'destructive' : 'default'}
                     size="sm"
@@ -419,6 +537,7 @@ const EnhancedTranscriptWidget: React.FC = () => {
                   <Mic className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                   <p>Click "Start Recording" to begin transcription</p>
                   <p className="text-sm mt-2">NLP processing will start automatically</p>
+                  <p className="text-sm mt-2 text-blue-600">Or click "Add Test Data" to test the interface</p>
                 </div>
               )}
             </CardContent>
