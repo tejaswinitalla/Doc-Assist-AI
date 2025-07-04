@@ -14,14 +14,28 @@ import {
   Volume2,
   RefreshCw,
   Download,
-  Trash2
+  Trash2,
+  Users,
+  Shield
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import MicrophoneIndicator from './MicrophoneIndicator';
 import ClinicalAlertCard from './ClinicalAlertCard';
+import SpeakerAwareTranscript from './SpeakerAwareTranscript';
+import ConsentManagement from './ConsentManagement';
+import ASRQualityTester from './ASRQualityTester';
 import { voiceInteractionService, TranscriptSegment, MicrophoneState } from '../services/voiceInteractionService';
 import { clinicalAlertService, ClinicalAlert } from '../services/clinicalAlertService';
 import { nlpService, NLPResponse } from '../services/nlpService';
+
+// Extended interface for speaker-aware transcripts
+interface SpeakerTranscript {
+  id: string;
+  text: string;
+  speaker: 'doctor' | 'patient' | 'nurse' | 'unknown';
+  timestamp: Date;
+  confidence: number;
+}
 
 const VoiceInteractionWidget: React.FC = () => {
   const [micState, setMicState] = useState<MicrophoneState>({
@@ -30,6 +44,7 @@ const VoiceInteractionWidget: React.FC = () => {
     volume: 0
   });
   const [transcriptSegments, setTranscriptSegments] = useState<TranscriptSegment[]>([]);
+  const [speakerTranscripts, setSpeakerTranscripts] = useState<SpeakerTranscript[]>([]);
   const [currentInterim, setCurrentInterim] = useState<string>('');
   const [clinicalAlerts, setClinicalAlerts] = useState<ClinicalAlert[]>([]);
   const [nlpResponse, setNlpResponse] = useState<NLPResponse | null>(null);
@@ -77,12 +92,48 @@ const VoiceInteractionWidget: React.FC = () => {
     }
   }, [transcriptSegments]);
 
+  // Simple speaker diarization simulation
+  const simulateSpeakerDiarization = (text: string): 'doctor' | 'patient' | 'nurse' | 'unknown' => {
+    const lowerText = text.toLowerCase();
+    
+    // Doctor indicators
+    if (lowerText.includes('prescribe') || lowerText.includes('diagnosis') || 
+        lowerText.includes('examine') || lowerText.includes('recommend')) {
+      return 'doctor';
+    }
+    
+    // Patient indicators
+    if (lowerText.includes('i feel') || lowerText.includes('my pain') || 
+        lowerText.includes('i have') || lowerText.includes('i am')) {
+      return 'patient';
+    }
+    
+    // Nurse indicators
+    if (lowerText.includes('vital signs') || lowerText.includes('blood pressure') ||
+        lowerText.includes('temperature') || lowerText.includes('medication time')) {
+      return 'nurse';
+    }
+    
+    // Default to unknown if no clear indicators
+    return 'unknown';
+  };
+
   const handleNewTranscript = (segment: TranscriptSegment) => {
     if (segment.isInterim) {
       setCurrentInterim(segment.text);
     } else {
       setTranscriptSegments(prev => [...prev, segment]);
       setCurrentInterim('');
+      
+      // Create speaker-aware transcript
+      const speakerTranscript: SpeakerTranscript = {
+        id: segment.id,
+        text: segment.text,
+        speaker: simulateSpeakerDiarization(segment.text),
+        timestamp: segment.timestamp,
+        confidence: segment.confidence
+      };
+      setSpeakerTranscripts(prev => [...prev, speakerTranscript]);
       
       // Analyze for clinical alerts
       clinicalAlertService.analyzeTranscript(segment.text, segment.text);
@@ -190,32 +241,42 @@ const VoiceInteractionWidget: React.FC = () => {
 
   const addTestTranscript = () => {
     const testPhrases = [
-      "Patient reports sepsis-like symptoms with fever and chills.",
-      "This medication is contraindicated with patient's allergy to penicillin.",
-      "Patient has a history of allergic reactions to latex.",
-      "Consider drug interaction between warfarin and aspirin.",
-      "Patient may have exceeded maximum dose of acetaminophen."
+      { text: "Patient reports chest pain and shortness of breath for the past two hours.", speaker: 'patient' as const },
+      { text: "I'm prescribing aspirin 81mg daily and scheduling an ECG.", speaker: 'doctor' as const },
+      { text: "Blood pressure is 140 over 90, heart rate 78, oxygen saturation 98 percent.", speaker: 'nurse' as const },
+      { text: "Patient has a history of diabetes and hypertension.", speaker: 'doctor' as const },
+      { text: "I feel dizzy when I stand up and have been having headaches.", speaker: 'patient' as const }
     ];
     
     const randomPhrase = testPhrases[Math.floor(Math.random() * testPhrases.length)];
     const testSegment: TranscriptSegment = {
       id: `test-${Date.now()}`,
-      text: randomPhrase,
+      text: randomPhrase.text,
       timestamp: new Date(),
       confidence: 0.95,
       isInterim: false
     };
     
-    handleNewTranscript(testSegment);
+    const speakerTranscript: SpeakerTranscript = {
+      id: testSegment.id,
+      text: randomPhrase.text,
+      speaker: randomPhrase.speaker,
+      timestamp: new Date(),
+      confidence: 0.95
+    };
+    
+    setTranscriptSegments(prev => [...prev, testSegment]);
+    setSpeakerTranscripts(prev => [...prev, speakerTranscript]);
     
     toast({
       title: "Test Data Added",
-      description: "Sample clinical transcript with potential alerts",
+      description: "Sample clinical transcript with speaker identification",
     });
   };
 
   const clearAllData = () => {
     setTranscriptSegments([]);
+    setSpeakerTranscripts([]);
     setCurrentInterim('');
     setClinicalAlerts([]);
     setNlpResponse(null);
@@ -232,6 +293,7 @@ const VoiceInteractionWidget: React.FC = () => {
     const data = {
       exportDate: new Date().toISOString(),
       transcripts: transcriptSegments,
+      speakerTranscripts: speakerTranscripts,
       alerts: clinicalAlertService.exportAlertLog(),
       nlpResponse: nlpResponse
     };
@@ -343,9 +405,10 @@ const VoiceInteractionWidget: React.FC = () => {
       </Card>
 
       <Tabs defaultValue="transcript" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="transcript">
-            Live Transcript {transcriptSegments.length > 0 && `(${transcriptSegments.length})`}
+            <Users className="w-4 h-4 mr-1" />
+            Speaker Transcript {speakerTranscripts.length > 0 && `(${speakerTranscripts.length})`}
           </TabsTrigger>
           <TabsTrigger value="alerts">
             Clinical Alerts {alertStats.total > 0 && (
@@ -357,64 +420,23 @@ const VoiceInteractionWidget: React.FC = () => {
           <TabsTrigger value="insights">
             AI Insights {showInsights && <Badge className="ml-2">New</Badge>}
           </TabsTrigger>
+          <TabsTrigger value="consent">
+            <Shield className="w-4 h-4 mr-1" />
+            Consent
+          </TabsTrigger>
+          <TabsTrigger value="quality">
+            ASR Testing
+          </TabsTrigger>
           <TabsTrigger value="fhir" disabled={!nlpResponse}>
             FHIR Document {nlpResponse && <Badge className="ml-2">Ready</Badge>}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="transcript">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Mic className="w-5 h-5" />
-                <span>Live Transcript</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-96 w-full border rounded-lg p-4">
-                <div className="space-y-3">
-                  {transcriptSegments.map((segment, index) => (
-                    <div
-                      key={segment.id}
-                      className="p-3 bg-white border rounded-lg shadow-sm animate-fade-in"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs text-gray-500">
-                          {segment.timestamp.toLocaleTimeString()}
-                        </span>
-                        <Badge variant="outline" className="text-xs">
-                          {Math.round(segment.confidence * 100)}% confidence
-                        </Badge>
-                      </div>
-                      <p className="text-gray-900">{segment.text}</p>
-                    </div>
-                  ))}
-
-                  {currentInterim && (
-                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg opacity-70">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <span className="text-xs text-yellow-600">Interim:</span>
-                        <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
-                      </div>
-                      <p className="text-yellow-900 italic">{currentInterim}</p>
-                    </div>
-                  )}
-
-                  <div ref={transcriptEndRef} />
-                </div>
-
-                {transcriptSegments.length === 0 && !currentInterim && (
-                  <div className="text-center py-8 text-gray-500">
-                    <Mic className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                    <p>Start listening to begin transcription</p>
-                    <p className="text-sm mt-2">
-                      Voice commands: "repeat that", "pause listening", "resume listening"
-                    </p>
-                  </div>
-                )}
-              </ScrollArea>
-            </CardContent>
-          </Card>
+          <SpeakerAwareTranscript 
+            transcripts={speakerTranscripts}
+            className="w-full"
+          />
         </TabsContent>
 
         <TabsContent value="alerts">
@@ -470,6 +492,14 @@ const VoiceInteractionWidget: React.FC = () => {
               )}
             </div>
           </React.Suspense>
+        </TabsContent>
+
+        <TabsContent value="consent">
+          <ConsentManagement />
+        </TabsContent>
+
+        <TabsContent value="quality">
+          <ASRQualityTester />
         </TabsContent>
 
         <TabsContent value="fhir">
