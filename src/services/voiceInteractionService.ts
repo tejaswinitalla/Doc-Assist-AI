@@ -43,14 +43,16 @@ class VoiceInteractionService {
   }
 
   private checkSupport() {
-    this.isSupported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
+    this.isSupported = !!(window.webkitSpeechRecognition || window.SpeechRecognition);
   }
 
   private setupRecognition() {
     if (!this.isSupported) return;
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    this.recognition = new SpeechRecognition();
+    const SpeechRecognitionConstructor = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognitionConstructor) return;
+    
+    this.recognition = new SpeechRecognitionConstructor();
     
     this.recognition.continuous = true;
     this.recognition.interimResults = true;
