@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,6 +36,7 @@ const VoiceInteractionWidget: React.FC = () => {
   const [isProcessingNLP, setIsProcessingNLP] = useState(false);
   const [lastCommand, setLastCommand] = useState<string>('');
   const [isWebSpeechSupported] = useState(voiceInteractionService.isWebSpeechSupported());
+  const [showInsights, setShowInsights] = useState(false);
   
   const { toast } = useToast();
   const transcriptEndRef = useRef<HTMLDivElement>(null);
@@ -86,6 +86,30 @@ const VoiceInteractionWidget: React.FC = () => {
       
       // Analyze for clinical alerts
       clinicalAlertService.analyzeTranscript(segment.text, segment.text);
+      
+      // Generate insights if we have enough context
+      if (transcriptSegments.length > 2) {
+        const fullTranscript = [...transcriptSegments, segment]
+          .map(s => s.text)
+          .join(' ');
+        
+        // Generate insights using the new service
+        import('../services/aiInsightsService').then(({ aiInsightsService }) => {
+          const insights = aiInsightsService.generateInsightCards(
+            fullTranscript, 
+            clinicalAlertService.getActiveAlerts(),
+            nlpResponse
+          );
+          
+          if (insights.length > 0) {
+            setShowInsights(true);
+            toast({
+              title: "New Insights Available",
+              description: `Generated ${insights.length} clinical insights`,
+            });
+          }
+        });
+      }
     }
   };
 
@@ -319,7 +343,7 @@ const VoiceInteractionWidget: React.FC = () => {
       </Card>
 
       <Tabs defaultValue="transcript" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="transcript">
             Live Transcript {transcriptSegments.length > 0 && `(${transcriptSegments.length})`}
           </TabsTrigger>
@@ -329,6 +353,9 @@ const VoiceInteractionWidget: React.FC = () => {
                 {alertStats.total}
               </Badge>
             )}
+          </TabsTrigger>
+          <TabsTrigger value="insights">
+            AI Insights {showInsights && <Badge className="ml-2">New</Badge>}
           </TabsTrigger>
           <TabsTrigger value="fhir" disabled={!nlpResponse}>
             FHIR Document {nlpResponse && <Badge className="ml-2">Ready</Badge>}
@@ -428,6 +455,21 @@ const VoiceInteractionWidget: React.FC = () => {
               </ScrollArea>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="insights">
+          <React.Suspense fallback={<div>Loading insights...</div>}>
+            <div className="min-h-96">
+              {React.createElement(
+                React.lazy(() => import('./InsightCardsDashboard')),
+                {
+                  transcript: transcriptSegments.map(s => s.text).join(' '),
+                  alerts: clinicalAlerts,
+                  nlpResponse: nlpResponse
+                }
+              )}
+            </div>
+          </React.Suspense>
         </TabsContent>
 
         <TabsContent value="fhir">
