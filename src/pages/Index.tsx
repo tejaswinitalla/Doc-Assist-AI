@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Stethoscope, CloudIcon, TestTube, BarChart3, Upload, Play, Pause, Activity, Code } from 'lucide-react';
+import { Stethoscope, CloudIcon, TestTube, BarChart3, Upload, Play, Pause, Activity, Code, Wallet, ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import ServiceComparison from '../components/ServiceComparison';
 import AudioTesting from '../components/AudioTesting';
 import BenchmarkResults from '../components/BenchmarkResults';
@@ -29,11 +30,20 @@ const Index = () => {
                 <p className="text-sm text-slate-600">Medical Speech-to-Text Integration Platform</p>
               </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <Badge variant="secondary" className="bg-medical-blue-light text-medical-blue">
-                <Activity className="w-3 h-3 mr-1" />
-                Development Environment
-              </Badge>
+            <div className="flex items-center space-x-4">
+              <Link to="/patient-portal">
+                <Button className="bg-gradient-to-r from-blue-500 to-teal-500 hover:from-blue-600 hover:to-teal-600">
+                  <Wallet className="w-4 h-4 mr-2" />
+                  Patient Portal
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </Link>
+              <div className="flex items-center space-x-2">
+                <Badge variant="secondary" className="bg-medical-blue-light text-medical-blue">
+                  <Activity className="w-3 h-3 mr-1" />
+                  Development Environment
+                </Badge>
+              </div>
             </div>
           </div>
         </div>
