@@ -23,9 +23,9 @@ import { useToast } from '@/hooks/use-toast';
 import MicrophoneIndicator from './MicrophoneIndicator';
 import ClinicalAlertCard from './ClinicalAlertCard';
 import SpeakerAwareTranscript from './SpeakerAwareTranscript';
-import ConsentManagement from './ConsentManagement';
-import ASRQualityTester from './ASRQualityTester';
-import { voiceInteractionService, TranscriptSegment, MicrophoneState } from '../services/voiceInteractionService';
+import ConsentManager from './ConsentManager';
+import ASRAccuracyTester from './ASRAccuracyTester';
+import { voiceInteractionService, TranscriptSegment, MicrophoneState, ClinicalTerm } from '../services/voiceInteractionService';
 import { clinicalAlertService, ClinicalAlert } from '../services/clinicalAlertService';
 import { nlpService, NLPResponse } from '../services/nlpService';
 
@@ -360,6 +360,46 @@ const VoiceInteractionWidget: React.FC = () => {
 
   const alertStats = clinicalAlertService.getAlertStats();
 
+  // Enhanced clinical term highlighting
+  const highlightClinicalTerms = (text: string, terms: any[]) => {
+    if (!terms || terms.length === 0) return text;
+
+    let result = [];
+    let lastIndex = 0;
+
+    terms.forEach((term, index) => {
+      if (term.startIndex > lastIndex) {
+        result.push(text.slice(lastIndex, term.startIndex));
+      }
+
+      const highlightClass = {
+        medication: 'bg-blue-100 text-blue-800 px-1 rounded cursor-pointer hover:bg-blue-200',
+        condition: 'bg-red-100 text-red-800 px-1 rounded cursor-pointer hover:bg-red-200',
+        abbreviation: 'bg-purple-100 text-purple-800 px-1 rounded cursor-pointer hover:bg-purple-200',
+        procedure: 'bg-green-100 text-green-800 px-1 rounded cursor-pointer hover:bg-green-200'
+      }[term.type] || 'bg-gray-100 text-gray-800 px-1 rounded';
+
+      result.push(
+        <span 
+          key={`term-${index}`} 
+          className={highlightClass}
+          title={`${term.type}: ${term.text} (${(term.confidence * 100).toFixed(0)}% confidence)`}
+          onClick={() => term.externalUrl && window.open(term.externalUrl, '_blank')}
+        >
+          {term.text}
+        </span>
+      );
+
+      lastIndex = term.endIndex;
+    });
+
+    if (lastIndex < text.length) {
+      result.push(text.slice(lastIndex));
+    }
+
+    return result;
+  };
+
   return (
     <div className="space-y-6">
       {/* Status and Controls Header */}
@@ -368,7 +408,7 @@ const VoiceInteractionWidget: React.FC = () => {
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <Activity className="w-6 h-6 text-medical-blue" />
-              <span>Enhanced Voice Clinical Assistant</span>
+              <span>Advanced Clinical Voice Assistant</span>
               <MicrophoneIndicator state={micState} />
             </div>
             <div className="flex items-center space-x-2">
@@ -449,13 +489,13 @@ const VoiceInteractionWidget: React.FC = () => {
       </Card>
 
       <Tabs defaultValue="transcript" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="transcript">
             <Users className="w-4 h-4 mr-1" />
-            Speaker Transcript {speakerTranscripts.length > 0 && `(${speakerTranscripts.length})`}
+            Enhanced Transcript {speakerTranscripts.length > 0 && `(${speakerTranscripts.length})`}
           </TabsTrigger>
           <TabsTrigger value="alerts">
-            Enhanced Alerts {alertStats.total > 0 && (
+            Clinical Alerts {alertStats.total > 0 && (
               <Badge variant="destructive" className="ml-2">
                 {alertStats.total}
               </Badge>
@@ -470,10 +510,13 @@ const VoiceInteractionWidget: React.FC = () => {
           </TabsTrigger>
           <TabsTrigger value="consent">
             <Shield className="w-4 h-4 mr-1" />
-            Consent
+            Consent Management
           </TabsTrigger>
           <TabsTrigger value="quality">
-            ASR Testing
+            ASR Quality Testing
+          </TabsTrigger>
+          <TabsTrigger value="accuracy">
+            Accuracy QA
           </TabsTrigger>
           <TabsTrigger value="fhir" disabled={!nlpResponse}>
             FHIR Document {nlpResponse && <Badge className="ml-2">Ready</Badge>}
@@ -481,10 +524,57 @@ const VoiceInteractionWidget: React.FC = () => {
         </TabsList>
 
         <TabsContent value="transcript">
-          <SpeakerAwareTranscript 
-            transcripts={speakerTranscripts}
-            className="w-full"
-          />
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Users className="w-5 h-5" />
+                <span>Enhanced Clinical Transcript with Term Highlighting</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-96 w-full">
+                <div className="space-y-3">
+                  {speakerTranscripts.map((transcript) => (
+                    <div
+                      key={transcript.id}
+                      className={`p-4 border-l-4 rounded-r-lg ${
+                        transcript.speaker === 'doctor' 
+                          ? 'border-l-blue-500 bg-blue-50'
+                          : transcript.speaker === 'patient'
+                          ? 'border-l-green-500 bg-green-50'
+                          : transcript.speaker === 'nurse'
+                          ? 'border-l-purple-500 bg-purple-50'
+                          : 'border-l-gray-500 bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-2">
+                          <Badge variant="outline" className="text-xs font-medium">
+                            [{transcript.timestamp.toLocaleTimeString()}] {transcript.speaker.charAt(0).toUpperCase() + transcript.speaker.slice(1)}
+                          </Badge>
+                          <Badge variant="secondary" className="text-xs">
+                            {Math.round(transcript.confidence * 100)}% confidence
+                          </Badge>
+                        </div>
+                      </div>
+                      
+                      <p className="text-gray-900 leading-relaxed">
+                        {highlightClinicalTerms(transcript.text, transcriptSegments.find(s => s.id === transcript.id)?.clinicalTerms || [])}
+                      </p>
+                    </div>
+                  ))}
+                  
+                  {speakerTranscripts.length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                      <p>No transcript data available</p>
+                      <p className="text-sm mt-2">Start recording to see enhanced speaker-separated transcripts with clinical term highlighting</p>
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="alerts">
@@ -552,11 +642,20 @@ const VoiceInteractionWidget: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="consent">
-          <ConsentManagement />
+          <ConsentManager />
         </TabsContent>
 
         <TabsContent value="quality">
           <ASRQualityTester />
+        </TabsContent>
+
+        <TabsContent value="accuracy">
+          <React.Suspense fallback={<div>Loading ASR Accuracy Tester...</div>}>
+            {React.createElement(
+              React.lazy(() => import('./ASRAccuracyTester')),
+              {}
+            )}
+          </React.Suspense>
         </TabsContent>
 
         <TabsContent value="fhir">
