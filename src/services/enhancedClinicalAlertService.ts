@@ -1,3 +1,4 @@
+import { ClinicalAlert } from './clinicalAlertService';
 
 interface EnhancedClinicalAlert extends ClinicalAlert {
   priority: 'critical' | 'warning' | 'info';
@@ -195,6 +196,7 @@ class EnhancedClinicalAlertService {
         priority: 'critical',
         message: 'Critical drug interaction: Warfarin + Aspirin increases bleeding risk significantly',
         source: 'FDA Drug Interaction Database',
+        sourceUrl: undefined,
         detectedPhrase: 'warfarin aspirin combination',
         timestamp: new Date(),
         context: transcript.substring(0, 200),
