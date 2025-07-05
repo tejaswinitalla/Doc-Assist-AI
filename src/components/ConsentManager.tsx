@@ -18,7 +18,7 @@ import {
   Eye,
   EyeOff,
   Download,
-  Blockchain
+  Link2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -328,7 +328,7 @@ const ConsentManager: React.FC = () => {
                 Export Audit Log
               </Button>
               <Badge variant="outline">
-                <Blockchain className="w-3 h-3 mr-1" />
+                <Link2 className="w-3 h-3 mr-1" />
                 Blockchain Enabled
               </Badge>
             </div>

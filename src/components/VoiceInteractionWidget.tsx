@@ -646,7 +646,7 @@ const VoiceInteractionWidget: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="quality">
-          <ASRQualityTester />
+          <ASRAccuracyTester />
         </TabsContent>
 
         <TabsContent value="accuracy">
