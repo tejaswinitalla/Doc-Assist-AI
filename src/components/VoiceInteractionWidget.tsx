@@ -650,12 +650,7 @@ const VoiceInteractionWidget: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="accuracy">
-          <React.Suspense fallback={<div>Loading ASR Accuracy Tester...</div>}>
-            {React.createElement(
-              React.lazy(() => import('./ASRAccuracyTester')),
-              {}
-            )}
-          </React.Suspense>
+          <ASRAccuracyTester />
         </TabsContent>
 
         <TabsContent value="fhir">

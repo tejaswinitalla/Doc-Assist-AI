@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -122,7 +121,6 @@ const ConsentManager: React.FC = () => {
   
   const { toast } = useToast();
 
-  // Initialize consent records
   useEffect(() => {
     const initialRecords = clinicalNotes.map(note => ({
       noteId: note.id,
@@ -139,10 +137,9 @@ const ConsentManager: React.FC = () => {
     recipientEhrId: string
   ): Promise<BlockchainResponse> => {
     try {
-      // Simulate blockchain transaction
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      const success = Math.random() > 0.1; // 90% success rate
+      const success = Math.random() > 0.1;
       
       if (success) {
         const response: BlockchainResponse = {
@@ -182,7 +179,6 @@ const ConsentManager: React.FC = () => {
     try {
       const ehrId = recipientEhrId || selectedRecipient || 'UNKNOWN';
       
-      // Update consent record
       const newStatus = action === 'grant' ? 'granted' : 'revoked';
       
       setConsentRecords(prev => 
@@ -199,10 +195,8 @@ const ConsentManager: React.FC = () => {
         )
       );
 
-      // Simulate blockchain transaction
       const blockchainResponse = await simulateBlockchainWebhook(noteId, action, ehrId);
       
-      // Update webhook status and blockchain info
       setConsentRecords(prev => 
         prev.map(record => 
           record.noteId === noteId 
@@ -215,7 +209,6 @@ const ConsentManager: React.FC = () => {
         )
       );
 
-      // Add to audit log
       const auditEntry: ConsentAuditEntry = {
         id: `audit-${Date.now()}`,
         noteId,
@@ -258,7 +251,6 @@ const ConsentManager: React.FC = () => {
       [noteId]: !prev[noteId]
     }));
 
-    // Log view action in audit
     const auditEntry: ConsentAuditEntry = {
       id: `audit-${Date.now()}`,
       noteId,
@@ -387,7 +379,6 @@ const ConsentManager: React.FC = () => {
                                     <p className="text-sm text-gray-700"><strong>Content:</strong> {note.fullContent}</p>
                                   </div>
                                   
-                                  {/* Sensitive Fields Toggle */}
                                   <div className="border-t pt-3">
                                     <Button
                                       variant="outline"
