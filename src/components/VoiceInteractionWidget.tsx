@@ -16,7 +16,8 @@ import {
   Download,
   Trash2,
   Users,
-  Shield
+  Shield,
+  TestTube
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import MicrophoneIndicator from './MicrophoneIndicator';
@@ -135,8 +136,52 @@ const VoiceInteractionWidget: React.FC = () => {
       };
       setSpeakerTranscripts(prev => [...prev, speakerTranscript]);
       
-      // Analyze for clinical alerts
-      clinicalAlertService.analyzeTranscript(segment.text, segment.text);
+      // Enhanced alert analysis with context
+      import('../services/enhancedClinicalAlertService').then(({ enhancedClinicalAlertService }) => {
+        const patientContext = {
+          activeMedications: [
+            { name: 'warfarin', status: 'active' as const, prescribedDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), category: 'anticoagulant' },
+            { name: 'aspirin', status: 'active' as const, prescribedDate: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000), category: 'antiplatelet' }
+          ],
+          activeConditions: [
+            { code: 'I10', display: 'hypertension', clinicalStatus: 'active' as const, onsetDate: new Date('2023-01-15') },
+            { code: 'E11', display: 'type 2 diabetes', clinicalStatus: 'active' as const }
+          ],
+          recentVitals: [],
+          allergies: []
+        };
+        
+        const enhancedAlerts = enhancedClinicalAlertService.analyzeWithContext(
+          segment.text, 
+          patientContext
+        );
+        
+        // Convert enhanced alerts to standard format for display
+        enhancedAlerts.forEach(alert => {
+          const standardAlert = {
+            id: alert.id,
+            type: alert.type,
+            severity: alert.severity,
+            message: alert.message,
+            source: alert.source,
+            sourceUrl: alert.sourceUrl,
+            detectedPhrase: alert.detectedPhrase,
+            timestamp: alert.timestamp,
+            context: alert.context,
+            isAcknowledged: alert.isAcknowledged,
+            isOverridden: alert.isOverridden,
+            userResponse: alert.userResponse
+          };
+          
+          setClinicalAlerts(prev => [standardAlert, ...prev]);
+          
+          toast({
+            title: `${alert.priority === 'critical' ? '🚨' : '⚠️'} Enhanced Clinical Alert`,
+            description: alert.message,
+            variant: alert.priority === 'critical' ? "destructive" : "default",
+          });
+        });
+      });
       
       // Generate insights if we have enough context
       if (transcriptSegments.length > 2) {
@@ -144,7 +189,6 @@ const VoiceInteractionWidget: React.FC = () => {
           .map(s => s.text)
           .join(' ');
         
-        // Generate insights using the new service
         import('../services/aiInsightsService').then(({ aiInsightsService }) => {
           const insights = aiInsightsService.generateInsightCards(
             fullTranscript, 
@@ -155,8 +199,8 @@ const VoiceInteractionWidget: React.FC = () => {
           if (insights.length > 0) {
             setShowInsights(true);
             toast({
-              title: "New Insights Available",
-              description: `Generated ${insights.length} clinical insights`,
+              title: "Enhanced Insights Available",
+              description: `Generated ${insights.length} contextual clinical insights`,
             });
           }
         });
@@ -324,7 +368,7 @@ const VoiceInteractionWidget: React.FC = () => {
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <Activity className="w-6 h-6 text-medical-blue" />
-              <span>Voice Clinical Assistant</span>
+              <span>Enhanced Voice Clinical Assistant</span>
               <MicrophoneIndicator state={micState} />
             </div>
             <div className="flex items-center space-x-2">
@@ -405,13 +449,13 @@ const VoiceInteractionWidget: React.FC = () => {
       </Card>
 
       <Tabs defaultValue="transcript" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="transcript">
             <Users className="w-4 h-4 mr-1" />
             Speaker Transcript {speakerTranscripts.length > 0 && `(${speakerTranscripts.length})`}
           </TabsTrigger>
           <TabsTrigger value="alerts">
-            Clinical Alerts {alertStats.total > 0 && (
+            Enhanced Alerts {alertStats.total > 0 && (
               <Badge variant="destructive" className="ml-2">
                 {alertStats.total}
               </Badge>
@@ -419,6 +463,10 @@ const VoiceInteractionWidget: React.FC = () => {
           </TabsTrigger>
           <TabsTrigger value="insights">
             AI Insights {showInsights && <Badge className="ml-2">New</Badge>}
+          </TabsTrigger>
+          <TabsTrigger value="validation">
+            <TestTube className="w-4 h-4 mr-1" />
+            Pipeline Testing
           </TabsTrigger>
           <TabsTrigger value="consent">
             <Shield className="w-4 h-4 mr-1" />
@@ -445,10 +493,10 @@ const VoiceInteractionWidget: React.FC = () => {
               <CardTitle className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <AlertTriangle className="w-5 h-5 text-red-600" />
-                  <span>Clinical Safety Alerts</span>
+                  <span>Enhanced Clinical Safety Alerts</span>
                 </div>
                 <div className="text-sm text-gray-600">
-                  {alertStats.total} active alerts
+                  {alertStats.total} active alerts with contextual filtering
                 </div>
               </CardTitle>
             </CardHeader>
@@ -469,7 +517,7 @@ const VoiceInteractionWidget: React.FC = () => {
                       <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                       <p>No clinical alerts detected</p>
                       <p className="text-sm mt-2">
-                        Alerts will appear when safety triggers are identified in speech
+                        Enhanced alerts will appear when safety triggers are identified with proper context
                       </p>
                     </div>
                   )}
@@ -480,7 +528,7 @@ const VoiceInteractionWidget: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="insights">
-          <React.Suspense fallback={<div>Loading insights...</div>}>
+          <React.Suspense fallback={<div>Loading enhanced insights...</div>}>
             <div className="min-h-96">
               {React.createElement(
                 React.lazy(() => import('./InsightCardsDashboard')),
@@ -491,6 +539,15 @@ const VoiceInteractionWidget: React.FC = () => {
                 }
               )}
             </div>
+          </React.Suspense>
+        </TabsContent>
+
+        <TabsContent value="validation">
+          <React.Suspense fallback={<div>Loading AI pipeline validator...</div>}>
+            {React.createElement(
+              React.lazy(() => import('./AIPipelineValidator')),
+              {}
+            )}
           </React.Suspense>
         </TabsContent>
 
