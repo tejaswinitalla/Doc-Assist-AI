@@ -4,7 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Wallet, Shield, Download, Bell, ArrowLeft } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Wallet, Shield, Download, Bell, ArrowLeft, TrendingUp, Clock, Users, FileText, CheckCircle, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import WalletDashboard from '../components/WalletDashboard';
 import ConsentLogViewer from '../components/ConsentLogViewer';
@@ -16,16 +17,30 @@ const PatientPortal = () => {
   const [activeTab, setActiveTab] = useState('wallet');
   const [notifications, setNotifications] = useState([]);
   const [connectedWallet, setConnectedWallet] = useState(null);
+  const [dataNFTs, setDataNFTs] = useState([]);
+  const [consentActivity, setConsentActivity] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Load initial data
     const loadData = async () => {
-      const notifs = await patientPortalService.getNotifications();
-      setNotifications(notifs);
-      
-      // Check for connected wallet
-      const wallet = await patientPortalService.checkWalletConnection();
-      setConnectedWallet(wallet);
+      setIsLoading(true);
+      try {
+        const [notifs, wallet, nfts, activity] = await Promise.all([
+          patientPortalService.getNotifications(),
+          patientPortalService.checkWalletConnection(),
+          patientPortalService.getDataNFTs(),
+          patientPortalService.getConsentActivity()
+        ]);
+        
+        setNotifications(notifs);
+        setConnectedWallet(wallet);
+        setDataNFTs(nfts);
+        setConsentActivity(activity);
+      } catch (error) {
+        console.error('Failed to load patient portal data:', error);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     loadData();
@@ -35,30 +50,45 @@ const PatientPortal = () => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
+  const activeDataNFTs = dataNFTs.filter(nft => nft.status === 'active').length;
+  const pendingConsents = consentActivity.filter(activity => activity.status === 'pending').length;
+  const totalEarnings = dataNFTs.reduce((sum, nft) => sum + (nft.earnings || 0), 0);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-muted-foreground">Loading your patient portal...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-teal-50">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-white/90 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-50">
+      <header className="bg-card/90 backdrop-blur-sm border-b border-border sticky top-0 z-50">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <Link to="/" className="flex items-center text-slate-600 hover:text-slate-900">
+              <Link to="/" className="flex items-center text-muted-foreground hover:text-foreground transition-colors">
                 <ArrowLeft className="w-5 h-5 mr-2" />
                 Back to Clinical Voice Insights
               </Link>
             </div>
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-teal-500 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 medical-gradient rounded-lg flex items-center justify-center">
                   <Wallet className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-slate-900">Patient Portal</h1>
-                  <p className="text-sm text-slate-600">Manage your DataNFTs and consent settings</p>
+                  <h1 className="text-2xl font-bold text-foreground">Patient Portal</h1>
+                  <p className="text-sm text-muted-foreground">Manage your DataNFTs and consent settings</p>
                 </div>
               </div>
               {connectedWallet && (
-                <Badge variant="secondary" className="bg-green-100 text-green-700">
+                <Badge variant="secondary" className="bg-medical-success/10 text-medical-success border-medical-success/20">
                   <Shield className="w-3 h-3 mr-1" />
                   Wallet Connected
                 </Badge>
@@ -79,90 +109,157 @@ const PatientPortal = () => {
       {/* Main Content */}
       <main className="container mx-auto px-6 py-8">
         {/* Overview Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card className="border-l-4 border-l-blue-500">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <Card className="medical-card border-l-4 border-l-primary hover:shadow-lg transition-all duration-300 animate-slide-up">
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center text-lg">
-                <Wallet className="w-5 h-5 mr-2 text-blue-500" />
+                <Wallet className="w-5 h-5 mr-2 text-primary" />
                 My DataNFTs
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold text-blue-600">12</p>
-              <p className="text-sm text-slate-500">Active tokens</p>
+              <div className="space-y-2">
+                <p className="text-2xl font-bold text-primary">{activeDataNFTs}</p>
+                <p className="text-sm text-muted-foreground">Active tokens</p>
+                <div className="flex items-center text-xs text-medical-success">
+                  <TrendingUp className="w-3 h-3 mr-1" />
+                  +2 this month
+                </div>
+              </div>
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-green-500">
+          <Card className="medical-card border-l-4 border-l-medical-success hover:shadow-lg transition-all duration-300 animate-slide-up" style={{animationDelay: '0.1s'}}>
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center text-lg">
-                <Shield className="w-5 h-5 mr-2 text-green-500" />
-                Active Shares
+                <Shield className="w-5 h-5 mr-2 text-medical-success" />
+                Consent Status
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold text-green-600">7</p>
-              <p className="text-sm text-slate-500">Providers with access</p>
+              <div className="space-y-2">
+                <p className="text-2xl font-bold text-medical-success">{consentActivity.filter(a => a.status === 'granted').length}</p>
+                <p className="text-sm text-muted-foreground">Active consents</p>
+                <div className="flex items-center text-xs text-medical-warning">
+                  <Clock className="w-3 h-3 mr-1" />
+                  {pendingConsents} pending
+                </div>
+              </div>
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-orange-500">
+          <Card className="medical-card border-l-4 border-l-medical-warning hover:shadow-lg transition-all duration-300 animate-slide-up" style={{animationDelay: '0.2s'}}>
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center text-lg">
-                <Bell className="w-5 h-5 mr-2 text-orange-500" />
+                <Bell className="w-5 h-5 mr-2 text-medical-warning" />
                 Notifications
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold text-orange-600">{notifications.length}</p>
-              <p className="text-sm text-slate-500">Pending alerts</p>
+              <div className="space-y-2">
+                <p className="text-2xl font-bold text-medical-warning">{notifications.length}</p>
+                <p className="text-sm text-muted-foreground">Pending alerts</p>
+                <div className="flex items-center text-xs text-medical-error">
+                  <AlertCircle className="w-3 h-3 mr-1" />
+                  {notifications.filter(n => n.priority === 'high').length} high priority
+                </div>
+              </div>
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-purple-500">
+          <Card className="medical-card border-l-4 border-l-medical-teal hover:shadow-lg transition-all duration-300 animate-slide-up" style={{animationDelay: '0.3s'}}>
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center text-lg">
-                <Download className="w-5 h-5 mr-2 text-purple-500" />
-                Exports
+                <TrendingUp className="w-5 h-5 mr-2 text-medical-teal" />
+                Earnings
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold text-purple-600">3</p>
-              <p className="text-sm text-slate-500">Recent downloads</p>
+              <div className="space-y-2">
+                <p className="text-2xl font-bold text-medical-teal">${totalEarnings.toFixed(2)}</p>
+                <p className="text-sm text-muted-foreground">Total earned</p>
+                <div className="flex items-center text-xs text-medical-success">
+                  <TrendingUp className="w-3 h-3 mr-1" />
+                  +${(totalEarnings * 0.12).toFixed(2)} this month
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <Card className="medical-card hover:shadow-lg transition-all duration-300 cursor-pointer" onClick={() => setActiveTab('wallet')}>
+            <CardContent className="flex items-center p-4">
+              <div className="w-12 h-12 medical-gradient rounded-full flex items-center justify-center mr-4">
+                <Wallet className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">Manage DataNFTs</h3>
+                <p className="text-sm text-muted-foreground">View and manage your health data tokens</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="medical-card hover:shadow-lg transition-all duration-300 cursor-pointer" onClick={() => setActiveTab('consent')}>
+            <CardContent className="flex items-center p-4">
+              <div className="w-12 h-12 bg-medical-success rounded-full flex items-center justify-center mr-4">
+                <Shield className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">Review Consents</h3>
+                <p className="text-sm text-muted-foreground">Track and manage data sharing permissions</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="medical-card hover:shadow-lg transition-all duration-300 cursor-pointer" onClick={() => setActiveTab('export')}>
+            <CardContent className="flex items-center p-4">
+              <div className="w-12 h-12 bg-medical-teal rounded-full flex items-center justify-center mr-4">
+                <Download className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">Export Data</h3>
+                <p className="text-sm text-muted-foreground">Download your health records</p>
+              </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 bg-white/80 backdrop-blur-sm">
-            <TabsTrigger value="wallet" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">
+          <TabsList className="grid w-full grid-cols-4 bg-card/80 backdrop-blur-sm border border-border">
+            <TabsTrigger value="wallet" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <Wallet className="w-4 h-4 mr-2" />
               Wallet Dashboard
             </TabsTrigger>
-            <TabsTrigger value="consent" className="data-[state=active]:bg-green-500 data-[state=active]:text-white">
+            <TabsTrigger value="consent" className="data-[state=active]:bg-medical-success data-[state=active]:text-white">
+              <Shield className="w-4 h-4 mr-2" />
               Consent Log
             </TabsTrigger>
-            <TabsTrigger value="export" className="data-[state=active]:bg-purple-500 data-[state=active]:text-white">
+            <TabsTrigger value="export" className="data-[state=active]:bg-medical-teal data-[state=active]:text-white">
+              <Download className="w-4 h-4 mr-2" />
               Export Tools
             </TabsTrigger>
-            <TabsTrigger value="notifications" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">
+            <TabsTrigger value="notifications" className="data-[state=active]:bg-medical-warning data-[state=active]:text-white">
+              <Bell className="w-4 h-4 mr-2" />
               Notifications
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="wallet" className="space-y-6">
+          <TabsContent value="wallet" className="space-y-6 animate-slide-up">
             <WalletDashboard connectedWallet={connectedWallet} />
           </TabsContent>
 
-          <TabsContent value="consent" className="space-y-6">
+          <TabsContent value="consent" className="space-y-6 animate-slide-up">
             <ConsentLogViewer />
           </TabsContent>
 
-          <TabsContent value="export" className="space-y-6">
+          <TabsContent value="export" className="space-y-6 animate-slide-up">
             <ExportTools connectedWallet={connectedWallet} />
           </TabsContent>
 
-          <TabsContent value="notifications" className="space-y-6">
+          <TabsContent value="notifications" className="space-y-6 animate-slide-up">
             <NotificationPanel 
               notifications={notifications} 
               onDismiss={handleDismissNotification}

@@ -107,9 +107,57 @@ All colors MUST be HSL.
     background: linear-gradient(145deg, hsl(0, 0%, 100%) 0%, hsl(210, 40%, 98%) 100%);
     border: 1px solid hsl(210, 30%, 92%);
     box-shadow: 0 4px 6px -1px hsl(210, 100%, 50% / 0.05), 0 2px 4px -1px hsl(210, 100%, 50% / 0.03);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .medical-card:hover {
+    box-shadow: 0 10px 15px -3px hsl(210, 100%, 50% / 0.1), 0 4px 6px -2px hsl(210, 100%, 50% / 0.05);
+    transform: translateY(-2px);
   }
   
   .waveform-animation {
     animation: pulse-medical 1.5s ease-in-out infinite;
+  }
+  
+  .stat-card {
+    @apply medical-card p-6 rounded-lg;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--gradient-accent, linear-gradient(90deg, hsl(210, 100%, 50%) 0%, hsl(175, 70%, 45%) 100%));
+  }
+  
+  .consent-timeline-item {
+    @apply relative pl-8 pb-6;
+  }
+  
+  .consent-timeline-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: hsl(210, 30%, 92%);
+  }
+  
+  .consent-timeline-item::after {
+    content: '';
+    position: absolute;
+    left: -4px;
+    top: 8px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: hsl(210, 100%, 50%);
+    border: 2px solid hsl(0, 0%, 100%);
   }
 }

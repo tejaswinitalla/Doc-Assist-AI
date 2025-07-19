@@ -219,6 +219,37 @@ class PatientPortalService {
     return null;
   }
 
+  async getConsentActivity() {
+    // Simulate consent activity data
+    await new Promise(resolve => setTimeout(resolve, 300));
+    return [
+      {
+        id: 'consent-1',
+        provider: 'Dr. Smith',
+        dataType: 'Clinical Notes',
+        status: 'granted',
+        date: '2024-01-15',
+        expiryDate: '2025-01-15'
+      },
+      {
+        id: 'consent-2',
+        provider: 'Research Institute',
+        dataType: 'Lab Results', 
+        status: 'pending',
+        date: '2024-01-20',
+        expiryDate: '2024-07-20'
+      },
+      {
+        id: 'consent-3',
+        provider: 'Hospital Network',
+        dataType: 'All Records',
+        status: 'granted',
+        date: '2024-01-10',
+        expiryDate: '2024-12-10'
+      }
+    ];
+  }
+
   async connectWallet(): Promise<string> {
     console.log('Connecting to Web3 wallet...');
     
