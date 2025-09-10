@@ -5,13 +5,18 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { Wallet, Shield, Download, Bell, ArrowLeft, TrendingUp, Clock, Users, FileText, CheckCircle, AlertCircle } from 'lucide-react';
+import { Wallet, Shield, Download, Bell, ArrowLeft, TrendingUp, Clock, Users, FileText, CheckCircle, AlertCircle, Mic } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import WalletDashboard from '../components/WalletDashboard';
 import ConsentLogViewer from '../components/ConsentLogViewer';
 import ExportTools from '../components/ExportTools';
 import NotificationPanel from '../components/NotificationPanel';
+import DataNFTManager from '../components/DataNFTManager';
+import ConsentTimeline from '../components/ConsentTimeline';
+import VoiceUIAnimations from '../components/VoiceUIAnimations';
+import PostVisitFollowUp from '../components/PostVisitFollowUp';
 import { patientPortalService } from '../services/patientPortalService';
+import { voiceInteractionService } from '../services/voiceInteractionService';
 
 const PatientPortal = () => {
   const [activeTab, setActiveTab] = useState('wallet');
@@ -19,23 +24,36 @@ const PatientPortal = () => {
   const [connectedWallet, setConnectedWallet] = useState(null);
   const [dataNFTs, setDataNFTs] = useState([]);
   const [consentActivity, setConsentActivity] = useState([]);
+  const [consentEvents, setConsentEvents] = useState([]);
+  const [followUpTasks, setFollowUpTasks] = useState([]);
+  const [voiceState, setVoiceState] = useState({
+    status: 'idle' as const,
+    isRecording: false,
+    volume: 0,
+    transcript: '',
+    alerts: []
+  });
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        const [notifs, wallet, nfts, activity] = await Promise.all([
+        const [notifs, wallet, nfts, activity, events, tasks] = await Promise.all([
           patientPortalService.getNotifications(),
           patientPortalService.checkWalletConnection(),
           patientPortalService.getDataNFTs(),
-          patientPortalService.getConsentActivity()
+          patientPortalService.getConsentActivity(),
+          patientPortalService.getConsentEvents(),
+          patientPortalService.getFollowUpTasks()
         ]);
         
         setNotifications(notifs);
         setConnectedWallet(wallet);
         setDataNFTs(nfts);
         setConsentActivity(activity);
+        setConsentEvents(events);
+        setFollowUpTasks(tasks);
       } catch (error) {
         console.error('Failed to load patient portal data:', error);
       } finally {
@@ -48,6 +66,50 @@ const PatientPortal = () => {
 
   const handleDismissNotification = (id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
+  };
+
+  const handleGrantAccess = async (tokenId: string, address: string) => {
+    await patientPortalService.grantAccess(tokenId, address);
+    // Reload data
+    const nfts = await patientPortalService.getDataNFTs();
+    setDataNFTs(nfts);
+  };
+
+  const handleRevokeAccess = async (tokenId: string, address: string) => {
+    await patientPortalService.revokeAccess(tokenId, address);
+    // Reload data
+    const nfts = await patientPortalService.getDataNFTs();
+    setDataNFTs(nfts);
+  };
+
+  const handleToggleVoiceRecording = () => {
+    if (voiceState.isRecording) {
+      voiceInteractionService.stopListening();
+    } else {
+      voiceInteractionService.startListening();
+    }
+  };
+
+  const handleDismissVoiceAlert = (alertId: string) => {
+    setVoiceState(prev => ({
+      ...prev,
+      alerts: prev.alerts.filter(alert => alert.id !== alertId)
+    }));
+  };
+
+  const handleSendFollowUp = async (taskId: string) => {
+    // Simulate sending follow-up
+    console.log('Sending follow-up for task:', taskId);
+  };
+
+  const handleMarkFollowUpCompleted = async (taskId: string) => {
+    // Simulate marking completed
+    console.log('Marking follow-up completed:', taskId);
+  };
+
+  const handleScheduleFollowUpReminder = async (taskId: string, reminderDate: string) => {
+    // Simulate scheduling reminder
+    console.log('Scheduling reminder:', taskId, reminderDate);
   };
 
   const activeDataNFTs = dataNFTs.filter(nft => nft.status === 'active').length;
@@ -228,18 +290,30 @@ const PatientPortal = () => {
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 bg-card/80 backdrop-blur-sm border border-border">
+          <TabsList className="grid w-full grid-cols-7 bg-card/80 backdrop-blur-sm border border-border">
             <TabsTrigger value="wallet" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <Wallet className="w-4 h-4 mr-2" />
-              Wallet Dashboard
+              NFT Manager
             </TabsTrigger>
             <TabsTrigger value="consent" className="data-[state=active]:bg-medical-success data-[state=active]:text-white">
               <Shield className="w-4 h-4 mr-2" />
-              Consent Log
+              Consent Timeline
+            </TabsTrigger>
+            <TabsTrigger value="voice" className="data-[state=active]:bg-primary data-[state=active]:text-white">
+              <Mic className="w-4 h-4 mr-2" />
+              Voice UI
+            </TabsTrigger>
+            <TabsTrigger value="followup" className="data-[state=active]:bg-medical-teal data-[state=active]:text-white">
+              <Clock className="w-4 h-4 mr-2" />
+              Follow-Up
             </TabsTrigger>
             <TabsTrigger value="export" className="data-[state=active]:bg-medical-teal data-[state=active]:text-white">
               <Download className="w-4 h-4 mr-2" />
               Export Tools
+            </TabsTrigger>
+            <TabsTrigger value="legacy" className="data-[state=active]:bg-muted data-[state=active]:text-foreground">
+              <Wallet className="w-4 h-4 mr-2" />
+              Legacy Wallet
             </TabsTrigger>
             <TabsTrigger value="notifications" className="data-[state=active]:bg-medical-warning data-[state=active]:text-white">
               <Bell className="w-4 h-4 mr-2" />
@@ -248,15 +322,40 @@ const PatientPortal = () => {
           </TabsList>
 
           <TabsContent value="wallet" className="space-y-6 animate-slide-up">
-            <WalletDashboard connectedWallet={connectedWallet} />
+            <DataNFTManager 
+              dataNFTs={dataNFTs}
+              onGrantAccess={handleGrantAccess}
+              onRevokeAccess={handleRevokeAccess}
+            />
           </TabsContent>
 
           <TabsContent value="consent" className="space-y-6 animate-slide-up">
-            <ConsentLogViewer />
+            <ConsentTimeline consentEvents={consentEvents} />
+          </TabsContent>
+
+          <TabsContent value="voice" className="space-y-6 animate-slide-up">
+            <VoiceUIAnimations 
+              voiceState={voiceState}
+              onToggleRecording={handleToggleVoiceRecording}
+              onDismissAlert={handleDismissVoiceAlert}
+            />
+          </TabsContent>
+
+          <TabsContent value="followup" className="space-y-6 animate-slide-up">
+            <PostVisitFollowUp 
+              followUpTasks={followUpTasks}
+              onSendFollowUp={handleSendFollowUp}
+              onMarkCompleted={handleMarkFollowUpCompleted}
+              onScheduleReminder={handleScheduleFollowUpReminder}
+            />
           </TabsContent>
 
           <TabsContent value="export" className="space-y-6 animate-slide-up">
             <ExportTools connectedWallet={connectedWallet} />
+          </TabsContent>
+
+          <TabsContent value="legacy" className="space-y-6 animate-slide-up">
+            <WalletDashboard connectedWallet={connectedWallet} />
           </TabsContent>
 
           <TabsContent value="notifications" className="space-y-6 animate-slide-up">

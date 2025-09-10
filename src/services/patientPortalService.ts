@@ -349,6 +349,57 @@ class PatientPortalService {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
+
+  async getFollowUpTasks() {
+    // Simulate follow-up tasks
+    await new Promise(resolve => setTimeout(resolve, 400));
+    return [
+      {
+        id: 'task-1',
+        type: 'immediate_summary',
+        patientId: 'pt-001',
+        patientName: 'John Smith',
+        visitDate: '2024-01-15T14:30:00Z',
+        dueDate: '2024-01-15T15:30:00Z',
+        status: 'completed',
+        priority: 'high',
+        method: 'email',
+        content: 'Your visit summary and next steps are ready for review.',
+        response: 'Thank you for the summary. Very helpful!',
+        responseDate: '2024-01-15T16:45:00Z',
+        attempts: 1,
+        maxAttempts: 3
+      },
+      {
+        id: 'task-2',
+        type: '24h_checkin',
+        patientId: 'pt-002',
+        patientName: 'Sarah Johnson',
+        visitDate: '2024-01-14T10:00:00Z',
+        dueDate: '2024-01-15T10:00:00Z',
+        status: 'pending',
+        priority: 'medium',
+        method: 'sms',
+        content: 'How are you feeling today? Please rate your pain level 1-10.',
+        attempts: 0,
+        maxAttempts: 2
+      },
+      {
+        id: 'task-3',
+        type: '1week_reminder',
+        patientId: 'pt-003',
+        patientName: 'Michael Davis',
+        visitDate: '2024-01-08T16:15:00Z',
+        dueDate: '2024-01-15T16:15:00Z',
+        status: 'sent',
+        priority: 'low',
+        method: 'app_notification',
+        content: 'Weekly check-in: How is your medication working?',
+        attempts: 1,
+        maxAttempts: 2
+      }
+    ];
+  }
 }
 
 export const patientPortalService = new PatientPortalService();
